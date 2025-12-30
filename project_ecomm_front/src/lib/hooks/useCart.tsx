@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
 
 export interface CartItem {
-  id: number;
-  productId: number;
+  id: string;
+  productId: string;
   name: string;
   price: number;
   quantity: number;
@@ -19,8 +19,8 @@ export interface CartItem {
 interface CartContextType {
   items: CartItem[];
   addToCart: (item: Omit<CartItem, 'id' | 'quantity'> & { quantity?: number }) => void;
-  removeFromCart: (itemId: number) => void;
-  updateQuantity: (itemId: number, quantity: number) => void;
+  removeFromCart: (itemId: string) => void;
+  updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
   getCartTotal: () => number;
   getCartCount: () => number;
@@ -87,7 +87,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         // Add new item
         const newItem: CartItem = {
           ...item,
-          id: Date.now(),
+          id: `cart-${Date.now()}-${Math.random()}`,
           quantity: item.quantity || 1,
         };
 
@@ -101,7 +101,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const removeFromCart = (itemId: number) => {
+  const removeFromCart = (itemId: string) => {
     setItems((prevItems) => {
       const item = prevItems.find(i => i.id === itemId);
       if (item) {
@@ -114,7 +114,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  const updateQuantity = (itemId: number, quantity: number) => {
+  const updateQuantity = (itemId: string, quantity: number) => {
     if (quantity < 1) {
       removeFromCart(itemId);
       return;

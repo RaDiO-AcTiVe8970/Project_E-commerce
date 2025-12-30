@@ -1,15 +1,12 @@
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { TrendingUp, Shield, Truck, CreditCard, Sparkles, ShoppingBag, Heart, Star, ArrowRight, Tag, Zap, Store } from 'lucide-react';
 
 export default function HomePage() {
   return (
     <div className="min-h-screen flex flex-col">
-      <Navbar />
-
       {/* Hero Section */}
       <section className="relative bg-gradient-to-br from-purple-600 via-pink-500 to-orange-500 py-24 overflow-hidden">
         {/* Animated background elements */}

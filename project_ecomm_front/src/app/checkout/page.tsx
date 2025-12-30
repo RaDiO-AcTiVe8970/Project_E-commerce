@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { ShoppingBag, CreditCard, MapPin, CheckCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { ordersApi } from '@/lib/api/orders';
 
 export default function CheckoutPage() {
   const { user } = useAuth();
@@ -39,6 +40,7 @@ export default function CheckoutPage() {
   const subtotal = getCartTotal();
   const shipping = 10.00;
   const tax = subtotal * 0.08; // 8% tax
+  const commission = subtotal * 0.1; // 10% commission
   const total = subtotal + shipping + tax;
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
@@ -67,16 +69,24 @@ export default function CheckoutPage() {
     setIsProcessing(true);
     
     try {
-      // TODO: Create order API endpoint
-      // await orderApi.create({
-      //   items,
-      //   shippingInfo,
-      //   paymentInfo,
-      //   total,
-      // });
-      
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Create order in database
+      await ordersApi.create({
+        subtotal: subtotal,
+        commission: commission,
+        total: total,
+        shippingAddress: {
+          street: shippingInfo.address,
+          city: shippingInfo.city,
+          state: shippingInfo.state,
+          zip: shippingInfo.zip,
+          country: shippingInfo.country,
+        },
+        cartItems: items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          price: item.price,
+        })),
+      });
       
       clearCart();
       setOrderPlaced(true);
@@ -90,9 +100,10 @@ export default function CheckoutPage() {
         router.push('/profile?tab=orders');
       }, 3000);
     } catch (error: any) {
+      console.error('Order creation error:', error);
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to place order',
+        description: error.response?.data?.message || 'Failed to place order. Please try again.',
         variant: 'destructive',
       });
     } finally {

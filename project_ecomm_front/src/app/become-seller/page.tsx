@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { Store, Sparkles, TrendingUp, Users, Package, DollarSign } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
+import { shopsApi } from '@/lib/api/shops';
 
 export default function BecomeSellerPage() {
   const { user } = useAuth();
@@ -40,22 +41,27 @@ export default function BecomeSellerPage() {
     setIsSubmitting(true);
     
     try {
-      // TODO: Create shop API endpoint
-      // await shopApi.create(formData);
-      
-      toast({
-        title: 'Application Submitted!',
-        description: 'Your seller application has been received. We will review it shortly.',
+      await shopsApi.create({
+        name: formData.shopName,
+        description: formData.description,
+        category: formData.category,
+        website: formData.website,
+        phoneNumber: formData.phoneNumber,
+        businessAddress: formData.businessAddress,
       });
       
-      // For now, just show success and redirect
+      toast({
+        title: 'Shop Created Successfully!',
+        description: 'Your shop has been created. You can now start adding products.',
+      });
+      
       setTimeout(() => {
         router.push('/profile');
       }, 2000);
     } catch (error: any) {
       toast({
         title: 'Error',
-        description: error.response?.data?.message || 'Failed to submit application',
+        description: error.response?.data?.message || 'Failed to create shop',
         variant: 'destructive',
       });
     } finally {

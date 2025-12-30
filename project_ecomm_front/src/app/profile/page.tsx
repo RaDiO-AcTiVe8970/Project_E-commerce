@@ -9,63 +9,19 @@ import { Label } from '@/components/ui/label';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { UpdateUserDto } from '@/lib/api/users';
-
-// Mock user data
-const mockUser = {
-  id: 1,
-  firstName: 'John',
-  lastName: 'Doe',
-  email: 'john.doe@example.com',
-  phone: '+1 (555) 123-4567',
-  avatar: 'https://ui-avatars.com/api/?name=John+Doe&size=200&background=7c3aed&color=fff',
-  joinDate: '2023-06-15',
-  address: {
-    street: '123 Main Street',
-    city: 'San Francisco',
-    state: 'CA',
-    zip: '94102',
-    country: 'United States',
-  },
-  stats: {
-    orders: 24,
-    reviews: 18,
-    wishlist: 12,
-    spent: 2456.78,
-  },
-};
-
-// Mock orders
-const mockOrders = [
-  {
-    id: 'ORD-001',
-    date: '2024-12-20',
-    status: 'Delivered',
-    total: 299.99,
-    items: 3,
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100',
-  },
-  {
-    id: 'ORD-002',
-    date: '2024-12-15',
-    status: 'Shipped',
-    total: 89.99,
-    items: 1,
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=100',
-  },
-  {
-    id: 'ORD-003',
-    date: '2024-12-10',
-    status: 'Processing',
-    total: 149.99,
-    items: 2,
-    image: 'https://images.unsplash.com/photo-1595225476474-87563907a212?w=100',
-  },
-];
+import { ordersApi, Order, UserStats } from '@/lib/api/orders';
+import { toast } from '@/hooks/use-toast';
+import { useSearchParams } from 'next/navigation';
 
 export default function ProfilePage() {
   const { user, updateProfile } = useAuth();
-  const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'wishlist' | 'settings'>('profile');
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab') as 'profile' | 'orders' | 'wishlist' | 'settings' | null;
+  const [activeTab, setActiveTab] = useState<'profile' | 'orders' | 'wishlist' | 'settings'>(tabParam || 'profile');
   const [isEditing, setIsEditing] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -96,8 +52,37 @@ export default function ProfilePage() {
           country: '',
         },
       });
+      fetchData();
     }
   }, [user]);
+
+  // Handle tab changes from URL params
+  useEffect(() => {
+    if (tabParam && ['profile', 'orders', 'wishlist', 'settings'].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [tabParam]);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [ordersData, statsData] = await Promise.all([
+        ordersApi.getMyOrders(),
+        ordersApi.getStats(),
+      ]);
+      setOrders(ordersData);
+      setStats(statsData);
+    } catch (error) {
+      console.error('Error fetching profile data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load profile data',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -114,10 +99,13 @@ export default function ProfilePage() {
     }
   };
 
-  if (!user) {
+  if (!user || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-xl text-gray-600">Loading...</p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-xl text-gray-600">Loading profile...</p>
+        </div>
       </div>
     );
   }
@@ -126,12 +114,18 @@ export default function ProfilePage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Delivered':
+      case 'DELIVERED':
         return 'bg-green-100 text-green-800';
-      case 'Shipped':
+      case 'SHIPPED':
         return 'bg-blue-100 text-blue-800';
-      case 'Processing':
+      case 'PROCESSING':
         return 'bg-yellow-100 text-yellow-800';
+      case 'PAID':
+        return 'bg-purple-100 text-purple-800';
+      case 'PENDING':
+        return 'bg-orange-100 text-orange-800';
+      case 'CANCELLED':
+        return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -166,7 +160,7 @@ export default function ProfilePage() {
               <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <ShoppingBag className="h-8 w-8 text-white" />
               </div>
-              <p className="text-3xl font-bold text-gray-900">{(user as any).stats?.orders || 0}</p>
+              <p className="text-3xl font-bold text-gray-900">{stats?.orders || 0}</p>
               <p className="text-gray-600">Total Orders</p>
             </CardContent>
           </Card>
@@ -176,7 +170,7 @@ export default function ProfilePage() {
               <div className="bg-gradient-to-br from-orange-500 to-red-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <Star className="h-8 w-8 text-white" />
               </div>
-              <p className="text-3xl font-bold text-gray-900">{(user as any).stats?.reviews || 0}</p>
+              <p className="text-3xl font-bold text-gray-900">{stats?.reviews || 0}</p>
               <p className="text-gray-600">Reviews Written</p>
             </CardContent>
           </Card>
@@ -186,7 +180,7 @@ export default function ProfilePage() {
               <div className="bg-gradient-to-br from-green-500 to-emerald-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <Heart className="h-8 w-8 text-white" />
               </div>
-              <p className="text-3xl font-bold text-gray-900">{(user as any).stats?.wishlist || 0}</p>
+              <p className="text-3xl font-bold text-gray-900">{stats?.wishlist || 0}</p>
               <p className="text-gray-600">Wishlist Items</p>
             </CardContent>
           </Card>
@@ -196,7 +190,7 @@ export default function ProfilePage() {
               <div className="bg-gradient-to-br from-blue-500 to-cyan-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3">
                 <Package className="h-8 w-8 text-white" />
               </div>
-              <p className="text-3xl font-bold text-gray-900">${((user as any).stats?.spent || 0).toFixed(0)}</p>
+              <p className="text-3xl font-bold text-gray-900">${(stats?.spent || 0).toFixed(2)}</p>
               <p className="text-gray-600">Total Spent</p>
             </CardContent>
           </Card>
@@ -372,33 +366,50 @@ export default function ProfilePage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="p-8">
-              <div className="space-y-4">
-                {mockOrders.map((order) => (
-                  <Link key={order.id} href={`/orders/${order.id}`}>
-                    <div className="flex items-center gap-6 p-6 bg-gray-50 rounded-xl hover:bg-gray-100 transition cursor-pointer">
-                      <img src={order.image} alt="Order" className="w-20 h-20 object-cover rounded-lg" />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="text-lg font-bold text-gray-900">{order.id}</h3>
-                          <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>
-                            {order.status}
-                          </span>
-                        </div>
-                        <p className="text-gray-600 text-sm mb-2">
-                          {new Date(order.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
-                        </p>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="text-gray-600">{order.items} items</span>
-                          <span className="text-gray-400">•</span>
-                          <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                            ${order.total}
-                          </span>
+              {orders.length === 0 ? (
+                <div className="text-center py-12">
+                  <Package className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold text-gray-900 mb-2">No orders yet</h3>
+                  <p className="text-gray-600 mb-6">Start shopping to see your orders here</p>
+                  <Link href="/products">
+                    <Button className="bg-gradient-to-r from-purple-600 to-pink-600">
+                      Browse Products
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {orders.map((order) => (
+                    <Link key={order.id} href={`/orders/${order.id}`}>
+                      <div className="flex items-center gap-6 p-6 bg-gray-50 rounded-xl hover:bg-gray-100 transition cursor-pointer">
+                        <img 
+                          src={order.items[0]?.product.images[0] || 'https://via.placeholder.com/100'} 
+                          alt="Order" 
+                          className="w-20 h-20 object-cover rounded-lg" 
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-lg font-bold text-gray-900">Order #{order.id.slice(0, 8)}</h3>
+                            <span className={`px-3 py-1 rounded-full text-sm font-semibold ${getStatusColor(order.status)}`}>
+                              {order.status}
+                            </span>
+                          </div>
+                          <p className="text-gray-600 text-sm mb-2">
+                            {new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+                          </p>
+                          <div className="flex items-center gap-4 text-sm">
+                            <span className="text-gray-600">{order.items.length} items</span>
+                            <span className="text-gray-400">•</span>
+                            <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                              ${order.total.toFixed(2)}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}

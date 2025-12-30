@@ -1,97 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Search, Filter, Grid3x3, List, Star, Heart, ShoppingCart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { productsApi, Product } from '@/lib/api/products';
+import { categoriesApi, Category } from '@/lib/api/categories';
+import { toast } from '@/hooks/use-toast';
 
-// Mock data - will be replaced with API calls
-const mockProducts = [
-  {
-    id: 1,
-    name: 'Wireless Headphones',
-    price: 89.99,
-    image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400',
-    rating: 4.5,
-    reviews: 128,
-    shop: 'TechGear Store',
-    category: 'Electronics'
-  },
-  {
-    id: 2,
-    name: 'Smart Watch Pro',
-    price: 299.99,
-    image: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400',
-    rating: 4.8,
-    reviews: 256,
-    shop: 'WearTech',
-    category: 'Electronics'
-  },
-  {
-    id: 3,
-    name: 'Designer Sunglasses',
-    price: 159.99,
-    image: 'https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400',
-    rating: 4.6,
-    reviews: 89,
-    shop: 'Fashion Hub',
-    category: 'Fashion'
-  },
-  {
-    id: 4,
-    name: 'Leather Backpack',
-    price: 129.99,
-    image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400',
-    rating: 4.7,
-    reviews: 145,
-    shop: 'Urban Bags',
-    category: 'Fashion'
-  },
-  {
-    id: 5,
-    name: 'Mechanical Keyboard',
-    price: 149.99,
-    image: 'https://images.unsplash.com/photo-1595225476474-87563907a212?w=400',
-    rating: 4.9,
-    reviews: 312,
-    shop: 'TechGear Store',
-    category: 'Electronics'
-  },
-  {
-    id: 6,
-    name: 'Running Shoes',
-    price: 119.99,
-    image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400',
-    rating: 4.4,
-    reviews: 203,
-    shop: 'SportsPro',
-    category: 'Sports'
-  },
-  {
-    id: 7,
-    name: 'Coffee Maker',
-    price: 79.99,
-    image: 'https://images.unsplash.com/photo-1517668808822-9ebb02f2a0e6?w=400',
-    rating: 4.3,
-    reviews: 167,
-    shop: 'Home Essentials',
-    category: 'Home'
-  },
-  {
-    id: 8,
-    name: 'Yoga Mat Premium',
-    price: 49.99,
-    image: 'https://images.unsplash.com/photo-1601925260368-ae2f83cf8b7f?w=400',
-    rating: 4.6,
-    reviews: 98,
-    shop: 'FitLife',
-    category: 'Sports'
-  },
-];
-
-const categories = ['All', 'Electronics', 'Fashion', 'Home', 'Sports', 'Books', 'Toys', 'Beauty'];
 const priceRanges = [
   { label: 'All Prices', min: 0, max: Infinity },
   { label: 'Under $50', min: 0, max: 50 },
@@ -106,13 +24,52 @@ export default function ProductsPage() {
   const [selectedPriceRange, setSelectedPriceRange] = useState(priceRanges[0]);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState('featured');
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredProducts = mockProducts.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [productsData, categoriesData] = await Promise.all([
+        productsApi.getAll(),
+        categoriesApi.getAll(),
+      ]);
+      setProducts(productsData.data);
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load products',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.title.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === 'All' || product.category?.name === selectedCategory;
     const matchesPrice = product.price >= selectedPriceRange.min && product.price <= selectedPriceRange.max;
-    return matchesSearch && matchesCategory && matchesPrice;
+    return matchesSearch && matchesCategory && matchesPrice && product.isActive;
   });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-xl text-gray-600">Loading products...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
@@ -163,17 +120,27 @@ export default function ProductsPage() {
 
           {/* Category Pills */}
           <div className="flex flex-wrap gap-3 mt-6">
+            <button
+              onClick={() => setSelectedCategory('All')}
+              className={`px-6 py-2 rounded-full font-medium transition-all ${
+                selectedCategory === 'All'
+                  ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              All
+            </button>
             {categories.map((category) => (
               <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
+                key={category.id}
+                onClick={() => setSelectedCategory(category.name)}
                 className={`px-6 py-2 rounded-full font-medium transition-all ${
-                  selectedCategory === category
+                  selectedCategory === category.name
                     ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                {category}
+                {category.name}
               </button>
             ))}
           </div>
@@ -224,32 +191,36 @@ export default function ProductsPage() {
               <Card className="group h-full hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 border-0 overflow-hidden">
                 <div className="relative">
                   <img
-                    src={product.image}
-                    alt={product.name}
+                    src={product.images[0] || 'https://via.placeholder.com/400'}
+                    alt={product.title}
                     className="w-full h-64 object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                   <button className="absolute top-4 right-4 bg-white/90 p-2 rounded-full hover:bg-white shadow-lg transition">
                     <Heart className="h-5 w-5 text-gray-700 hover:text-red-500" />
                   </button>
                   <div className="absolute bottom-4 left-4 bg-gradient-to-r from-orange-500 to-pink-500 text-white px-3 py-1 rounded-full text-sm font-bold">
-                    {product.category}
+                    {product.category?.name}
                   </div>
                 </div>
                 <CardContent className="p-5">
-                  <p className="text-sm text-gray-500 mb-1">{product.shop}</p>
+                  <p className="text-sm text-gray-500 mb-1">{product.shop?.name}</p>
                   <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-purple-600 transition">
-                    {product.name}
+                    {product.title}
                   </h3>
                   <div className="flex items-center gap-2 mb-3">
                     <div className="flex items-center">
                       <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="ml-1 text-sm font-medium">{product.rating}</span>
+                      <span className="ml-1 text-sm font-medium">
+                        {product.reviews && product.reviews.length > 0 ? '4.5' : 'New'}
+                      </span>
                     </div>
-                    <span className="text-sm text-gray-500">({product.reviews} reviews)</span>
+                    <span className="text-sm text-gray-500">
+                      ({product.reviews?.length || 0} reviews)
+                    </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <p className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                      ${product.price}
+                      ${product.price.toFixed(2)}
                     </p>
                     <Button
                       size="sm"

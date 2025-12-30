@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useCart } from '@/lib/hooks/useCart';
 import { Button } from '@/components/ui/button';
-import { ShoppingCart, Search, User, LogOut, Store, Menu, Heart } from 'lucide-react';
+import { ShoppingCart, Search, User, LogOut, Store, Menu, Heart, Shield } from 'lucide-react';
 
 export default function Navbar() {
   const { user, logout, isAuthenticated } = useAuth();
@@ -63,6 +63,15 @@ export default function Navbar() {
                     <User className="h-6 w-6 text-gray-700" />
                   </Button>
                 </Link>
+
+                {user?.role === 'ADMIN' && (
+                  <Link href="/admin">
+                    <Button className="bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 text-white shadow-lg hover:shadow-xl transition-all">
+                      <Shield className="h-4 w-4 mr-2" />
+                      Admin
+                    </Button>
+                  </Link>
+                )}
 
                 {user?.role === 'SELLER' && (
                   <Link href="/dashboard">
