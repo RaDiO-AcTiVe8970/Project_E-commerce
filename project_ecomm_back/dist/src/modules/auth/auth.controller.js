@@ -87,7 +87,7 @@ __decorate([
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
     (0, swagger_1.ApiOperation)({ summary: 'Logout user' }),
     (0, swagger_1.ApiResponse)({ status: 200, description: 'User logged out successfully' }),
-    __param(0, (0, current_user_decorator_1.CurrentUser)('sub')),
+    __param(0, (0, current_user_decorator_1.CurrentUser)('id')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)

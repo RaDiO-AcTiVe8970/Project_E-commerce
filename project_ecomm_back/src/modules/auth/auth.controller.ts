@@ -51,7 +51,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Logout user' })
   @ApiResponse({ status: 200, description: 'User logged out successfully' })
-  async logout(@CurrentUser('sub') userId: string) {
+  async logout(@CurrentUser('id') userId: string) {
     return this.authService.logout(userId);
   }
 
