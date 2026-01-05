@@ -43,8 +43,8 @@ export default function CategoryPage() {
     }
   };
 
-  const handleAddToCart = (product: Product) => {
-    addToCart({
+  const handleAddToCart = async (product: Product) => {
+    await addToCart({
       productId: product.id,
       name: product.title,
       price: product.price,

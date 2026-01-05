@@ -3,6 +3,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from '@/hooks/use-toast';
+import { cartApi, CartItem as ApiCartItem } from '@/lib/api/cart';
+import { useAuth } from './useAuth';
 
 export interface CartItem {
   id: string;
@@ -18,133 +20,165 @@ export interface CartItem {
 
 interface CartContextType {
   items: CartItem[];
-  addToCart: (item: Omit<CartItem, 'id' | 'quantity'> & { quantity?: number }) => void;
-  removeFromCart: (itemId: string) => void;
-  updateQuantity: (itemId: string, quantity: number) => void;
-  clearCart: () => void;
+  addToCart: (item: Omit<CartItem, 'id' | 'quantity'> & { quantity?: number }) => Promise<void>;
+  removeFromCart: (itemId: string) => Promise<void>;
+  updateQuantity: (itemId: string, quantity: number) => Promise<void>;
+  clearCart: () => Promise<void>;
   getCartTotal: () => number;
   getCartCount: () => number;
   proceedToCheckout: () => void;
+  loading: boolean;
+  refreshCart: () => Promise<void>;
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+// Helper function to transform API cart item to UI cart item
+function transformCartItem(apiItem: ApiCartItem): CartItem {
+  return {
+    id: apiItem.id,
+    productId: apiItem.productId,
+    name: apiItem.product.title,
+    price: apiItem.product.price,
+    quantity: apiItem.quantity,
+    image: apiItem.product.images[0] || 'https://via.placeholder.com/400',
+    shop: apiItem.product.shop.name,
+    inStock: apiItem.product.inventory > 0,
+    maxStock: apiItem.product.inventory,
+  };
+}
+
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const { user, isAuthenticated } = useAuth();
 
-  // Load cart from localStorage on mount
+  // Load cart when user logs in
   useEffect(() => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      try {
-        setItems(JSON.parse(savedCart));
-      } catch (error) {
-        console.error('Failed to load cart:', error);
-      }
+    if (isAuthenticated && user) {
+      refreshCart();
+    } else {
+      setItems([]);
     }
-    setIsLoaded(true);
-  }, []);
+  }, [isAuthenticated, user]);
 
-  // Save cart to localStorage whenever it changes
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('cart', JSON.stringify(items));
-    }
-  }, [items, isLoaded]);
-
-  const addToCart = (item: Omit<CartItem, 'id' | 'quantity'> & { quantity?: number }) => {
-    setItems((prevItems) => {
-      // Check if item already exists in cart
-      const existingItem = prevItems.find(i => i.productId === item.productId);
-      
-      if (existingItem) {
-        // Update quantity
-        const newQuantity = existingItem.quantity + (item.quantity || 1);
-        const maxStock = item.maxStock || 999;
-        
-        if (newQuantity > maxStock) {
-          toast({
-            title: 'Cannot add more',
-            description: `Only ${maxStock} items available in stock`,
-            variant: 'destructive',
-          });
-          return prevItems;
-        }
-
-        toast({
-          title: 'Cart updated',
-          description: `${item.name} quantity updated`,
-        });
-
-        return prevItems.map(i =>
-          i.productId === item.productId
-            ? { ...i, quantity: newQuantity }
-            : i
-        );
-      } else {
-        // Add new item
-        const newItem: CartItem = {
-          ...item,
-          id: `cart-${Date.now()}-${Math.random()}`,
-          quantity: item.quantity || 1,
-        };
-
-        toast({
-          title: 'Added to cart',
-          description: `${item.name} has been added to your cart`,
-        });
-
-        return [...prevItems, newItem];
+  const refreshCart = async () => {
+    try {
+      setLoading(true);
+      const cart = await cartApi.getCart();
+      setItems(cart.items.map(transformCartItem));
+    } catch (error: any) {
+      console.error('Failed to load cart:', error);
+      // If unauthorized, clear cart
+      if (error.response?.status === 401) {
+        setItems([]);
       }
-    });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const removeFromCart = (itemId: string) => {
-    setItems((prevItems) => {
-      const item = prevItems.find(i => i.id === itemId);
+  const addToCart = async (item: Omit<CartItem, 'id' | 'quantity'> & { quantity?: number }) => {
+    if (!isAuthenticated) {
+      toast({
+        title: 'Authentication required',
+        description: 'Please sign in to add items to cart',
+        variant: 'destructive',
+      });
+      router.push('/auth/login');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await cartApi.addItem({
+        productId: item.productId,
+        quantity: item.quantity || 1,
+      });
+      
+      await refreshCart();
+      
+      toast({
+        title: 'Added to cart',
+        description: `${item.name} has been added to your cart`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to add item to cart',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const removeFromCart = async (itemId: string) => {
+    try {
+      setLoading(true);
+      const item = items.find(i => i.id === itemId);
+      
+      await cartApi.removeItem(itemId);
+      await refreshCart();
+      
       if (item) {
         toast({
           title: 'Removed from cart',
           description: `${item.name} has been removed from your cart`,
         });
       }
-      return prevItems.filter(i => i.id !== itemId);
-    });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to remove item',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updateQuantity = (itemId: string, quantity: number) => {
+  const updateQuantity = async (itemId: string, quantity: number) => {
     if (quantity < 1) {
-      removeFromCart(itemId);
+      await removeFromCart(itemId);
       return;
     }
 
-    setItems((prevItems) =>
-      prevItems.map(item => {
-        if (item.id === itemId) {
-          const maxStock = item.maxStock || 999;
-          if (quantity > maxStock) {
-            toast({
-              title: 'Stock limit reached',
-              description: `Only ${maxStock} items available`,
-              variant: 'destructive',
-            });
-            return { ...item, quantity: maxStock };
-          }
-          return { ...item, quantity };
-        }
-        return item;
-      })
-    );
+    try {
+      setLoading(true);
+      await cartApi.updateQuantity(itemId, { quantity });
+      await refreshCart();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to update quantity',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const clearCart = () => {
-    setItems([]);
-    toast({
-      title: 'Cart cleared',
-      description: 'All items have been removed from your cart',
-    });
+  const clearCart = async () => {
+    try {
+      setLoading(true);
+      await cartApi.clearCart();
+      setItems([]);
+      
+      toast({
+        title: 'Cart cleared',
+        description: 'All items have been removed from your cart',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to clear cart',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getCartTotal = () => {
@@ -165,9 +199,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Check if user is authenticated
-    const accessToken = localStorage.getItem('accessToken');
-    if (!accessToken) {
+    if (!isAuthenticated) {
       toast({
         title: 'Authentication required',
         description: 'Please sign in to continue to checkout',
@@ -191,6 +223,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         getCartTotal,
         getCartCount,
         proceedToCheckout,
+        loading,
+        refreshCart,
       }}
     >
       {children}
@@ -205,3 +239,4 @@ export function useCart() {
   }
   return context;
 }
+

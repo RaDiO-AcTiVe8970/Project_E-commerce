@@ -11,6 +11,7 @@ import { CategoriesModule } from './modules/categories/categories.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ShopsModule } from './modules/shops/shops.module';
 import { OrdersModule } from './modules/orders/orders.module';
+import { CartModule } from './modules/cart/cart.module';
 import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 
 @Module({
@@ -28,6 +29,9 @@ import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
     UsersModule,
     CategoriesModule,
     ProductsModule,
+    ShopsModule,
+    OrdersModule,
+    CartModule,
     ShopsModule,
     OrdersModule,
   ],

@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { useCart } from '@/lib/hooks/useCart';
 
 export default function CartPage() {
-  const { items: cartItems, updateQuantity, removeFromCart, getCartTotal, proceedToCheckout } = useCart();
+  const { items: cartItems, updateQuantity, removeFromCart, getCartTotal, proceedToCheckout, clearCart } = useCart();
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount: number } | null>(null);
 
@@ -52,8 +52,23 @@ export default function CartPage() {
       {/* Header */}
       <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-orange-500 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-5xl font-extrabold mb-2">Shopping Cart</h1>
-          <p className="text-xl text-purple-100">{cartItems.length} items in your cart</p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-5xl font-extrabold mb-2">Shopping Cart</h1>
+              <p className="text-xl text-purple-100">{cartItems.length} items in your cart</p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (confirm('Are you sure you want to clear your cart?')) {
+                  clearCart();
+                }
+              }}
+              className="bg-white/10 border-white/30 text-white hover:bg-white/20"
+            >
+              Clear Cart
+            </Button>
+          </div>
         </div>
       </div>
 

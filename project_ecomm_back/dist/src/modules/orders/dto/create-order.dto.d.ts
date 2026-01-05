@@ -1,3 +1,8 @@
+declare class CartItemDto {
+    productId: string;
+    quantity: number;
+    price: number;
+}
 export declare class CreateOrderDto {
     subtotal: number;
     commission: number;
@@ -9,4 +14,6 @@ export declare class CreateOrderDto {
         zip: string;
         country: string;
     };
+    cartItems: CartItemDto[];
 }
+export {};

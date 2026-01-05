@@ -88,7 +88,7 @@ export default function CheckoutPage() {
         })),
       });
       
-      clearCart();
+      await clearCart();
       setOrderPlaced(true);
       
       toast({

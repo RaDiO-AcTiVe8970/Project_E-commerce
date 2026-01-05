@@ -20,6 +20,7 @@ const categories_module_1 = require("./modules/categories/categories.module");
 const products_module_1 = require("./modules/products/products.module");
 const shops_module_1 = require("./modules/shops/shops.module");
 const orders_module_1 = require("./modules/orders/orders.module");
+const cart_module_1 = require("./modules/cart/cart.module");
 const jwt_auth_guard_1 = require("./modules/auth/guards/jwt-auth.guard");
 let AppModule = class AppModule {
 };
@@ -40,6 +41,9 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             categories_module_1.CategoriesModule,
             products_module_1.ProductsModule,
+            shops_module_1.ShopsModule,
+            orders_module_1.OrdersModule,
+            cart_module_1.CartModule,
             shops_module_1.ShopsModule,
             orders_module_1.OrdersModule,
         ],
